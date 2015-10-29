@@ -23,7 +23,7 @@ exctract_files () {
 		sleep 1
 
 		echo "attempting to kill nc64 listener"
-		ssh root@$cnc "pkill nc64" || echo fail
+		ssh root@$cnc "pkill nc64.py" || echo fail
 		sleep 2
 
 	done

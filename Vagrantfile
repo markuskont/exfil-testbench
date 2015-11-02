@@ -26,16 +26,16 @@ sudo ip -6 route add default via 2a01:1010:20::22
 
 SCRIPT
 
-$router1_persist = <<SCRIPT
-
-sudo echo -e "iface eth1 inet6 static\naddress 2a01:1010:11::1/64" >> /etc/network/interfaces
-sudo echo -e "iface eth2 inet6 static\naddress 2a01:1010:20::21/64\ngateway 2a01:1010:20::22" >> /etc/network/interfaces
-
-SCRIPT
+#$router1_persist = <<SCRIPT
+#
+#sudo echo -e "iface eth1 inet6 static\naddress 2a01:1010:11::1/64" >> /etc/network/interfaces
+#sudo echo -e "iface eth2 inet6 static\naddress 2a01:1010:20::21/64\ngateway 2a01:1010:20::22" >> /etc/network/interfaces
+#
+#SCRIPT
 
 $router2 = <<SCRIPT
 
-sudo ifconfig eth1 inet6 add 2a00:1010:12::1/64
+sudo ifconfig eth1 inet6 add 2a02:1010:12::1/64
 sudo ifconfig eth2 inet6 add 2a01:1010:20::22/64
 
 sudo route add -net 192.168.11.0 netmask 255.255.255.0 gw 172.10.10.21
@@ -43,19 +43,36 @@ sudo route -A inet6 add 2a00:1010:11::/64 gw 2a01:1010:20::21
 
 SCRIPT
 
-$router2_persist = <<SCRIPT
+#$router2_persist = <<SCRIPT
+#
+#sudo echo -e "iface eth1 inet6 static\naddress 2a02:1010:12::1/64\nup route add -net 192.168.11.0 netmask 255.255.255.0 gw 172.10.10.21\nup route -A inet6 add 2a00:1010:11::/64 gw 2a01:1010:20::21" >> /etc/network/interfaces
+#sudo echo -e "iface eth2 inet6 static\naddress 2a01:1010:20::22/64" >> /etc/network/interfaces
+#
+#SCRIPT
 
-sudo echo -e "iface eth1 inet6 static\naddress 2a01:1010:12::1/64\nup route add -net 192.168.11.0 netmask 255.255.255.0 gw 172.10.10.21\nup route -A inet6 add 2a00:1010:11::/64 gw 2a01:1010:20::21" >> /etc/network/interfaces
-sudo echo -e "iface eth2 inet6 static\naddress 2a01:1010:20::22/64" >> /etc/network/interfaces
+$cnc_persist = <<SCRIPT
+
+sudo service network-manager stop
+sudo update-rc.d -f network-manager remove
+sudo route del default
+
+sudo echo -e "auto eth1\niface eth1 inet static\naddress 192.168.12.12\nnetmask 255.255.255.0\ngateway 192.168.12.1" >> /etc/network/interfaces
+sudo echo -e "iface eth1 inet6 static\naddress 2a02:1010:12::12/64\ngateway 2a02:1010:12::1" >> /etc/network/interfaces
+
+sudo ifup eth1
 
 SCRIPT
 
-$cnc = <<SCRIPT
+$host_persist = <<SCRIPT
 
-sudo ifconfig eth1 inet6 add 2a02:1010:12::12/64
-sudo echo -e "iface eth0 inet6 static\naddress 2a02:1010:12::12/64\ngateway 2a02:1010:12::1
+sudo service network-manager stop
+sudo update-rc.d -f network-manager remove
+sudo route del default
 
-sudo ip -6 route add default via 2a02:1010:12::1
+sudo echo -e "auto eth1\niface eth1 inet static\naddress 192.168.11.11\nnetmask 255.255.255.0\ngateway 192.168.11.1" >> /etc/network/interfaces
+sudo echo -e "iface eth1 inet6 static\naddress 2a00:1010:11::11/64\ngateway 2a00:1010:11::1" >> /etc/network/interfaces
+
+sudo ifup eth1
 
 SCRIPT
 
@@ -110,16 +127,16 @@ Vagrant.configure(2) do |config|
     config.vm.define "host" do |host|
         host.vm.box = "blackfin/kali"
         host.vm.hostname = "host"
-        # eth1
-        host.vm.network "private_network", ip: "192.168.11.11", virtualbox__intnet: "victim_LAN"
-        #host.vm.provision "shell", inline: $router1
+        # eth1, ip4 is not configured by vagrant (see inline)
+        host.vm.network "private_network", ip: "192.168.11.11", virtualbox__intnet: "victim_LAN", auto_config: false
+        host.vm.provision "shell", inline: $host_persist
     end
     config.vm.define "cnc" do |cnc|
         cnc.vm.box = "blackfin/kali"
         cnc.vm.hostname = "cnc"
-        # eth1
-        cnc.vm.network "private_network", ip: "192.168.12.12", virtualbox__intnet: "cnc_SINET"
-        #cnc.vm.provision "shell", inline: $router1
+        # eth1, ip4 is not configured by vagrant (see inline)
+        cnc.vm.network "private_network", ip: "192.168.12.12", virtualbox__intnet: "cnc_SINET", auto_config: false
+        cnc.vm.provision "shell", inline: $cnc_persist
     end
     config.vm.define "tap" do |tap|
         tap.vm.box = "ubuntu/trusty64"

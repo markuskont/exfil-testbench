@@ -1,0 +1,25 @@
+
+$script = <<SCRIPT
+
+sudo sed -i 's/Port 22/Port 2022/g' /etc/ssh/sshd_config
+
+sudo echo 1 > /proc/sys/net/ipv4/ip_forward
+sudo echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
+
+sudo echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+sudo echo 'net.ipv6.conf.all.forwarding=1' >> /etc/sysctl.conf
+
+sudo apt-get update
+sudo apt-get -y install bind9 vim htop tmux
+
+sudo cp /vagrant/named* /etc/bind/
+sudo cp /vagrant/exfil.zone /var/cache/bind
+
+sudo service bind9 restart
+
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "debian/jessie64"
+  config.vm.provision "shell", inline: $script
+end

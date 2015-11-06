@@ -64,12 +64,12 @@ iterate_ssh_tunnels () {
             case $version in
                 4)
                 ESTABLISH="ssh -i /home/vagrant/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no vagrant@$LISTENER_IP4 -L 4444:$LISTENER_IP4:4444 -N -f -p $port"
-                LISTEN_DATA="ncat -l -p 4444 -k"
+                LISTEN_DATA="ncat -4 -l -p 4444 -k -w 5 --output /vagrant/test.log"
                 SEND_DATA="ncat 127.0.0.1 4444"
                 ;;
                 6)
                 ESTABLISH="ssh -i /home/vagrant/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -6 vagrant@$LISTENER_IP6 -L 6666:\[$LISTENER_IP6\]:6666 -N -f -p $port"
-                LISTEN_DATA="ncat -6 -l -p 6666 -k"
+                LISTEN_DATA="ncat -6 -l -p 6666 -k -w 5 --output /vagrant/test.log"
                 SEND_DATA="ncat -6 ::1 6666"
                 ;;
                 *)
@@ -77,46 +77,42 @@ iterate_ssh_tunnels () {
                 ;;
             esac
 
-            exec_ssh_tunnel
+            ITERATION_NAME="ssh-$version-$port"
+            echo "$ITERATION_NAME"
+        
+            # Cleanup just in case
+            SSH $LISTENER_BOX "sudo pkill ncat"
+            kill_tcpdump_listener
+        
+            reconfigure_ssh_listener add $port
+            start_tcpdump_listener eth1 "$ITERATION_NAME"
+        
+            echo "Establishing SSH tunnel for iteration: $ITERATION_NAME"
+            SSH $SENDER_BOX "sudo nohup $ESTABLISH" || die "Failed to establish ssh channel"
+            for file in "${FILES[@]}"; do
+                echo "Starting netcat listener"
+                SSH $LISTENER_BOX "nohup sudo $LISTEN_DATA >> /vagrant/debug.log 2>&1 &"
+                sleep $SLEEP_INTERVAL
+                echo "Sending data"
+                SSH $SENDER_BOX "sudo cat $file | sudo $SEND_DATA"
+                sleep $SLEEP_INTERVAL
+            done
+        
+            echo "Cleaning up"
+            SSH $LISTENER_BOX "sudo pkill ncat"
+            SSH $SENDER_BOX "sudo ps -ef | egrep 'ssh.+id_rsa' | awk -F \" \" '{ print \$2 }' | sudo xargs kill"
+            reconfigure_ssh_listener remove $port
+            kill_tcpdump_listener
+            sleep $SLEEP_INTERVAL
 
         done
     done
 }
 
-exec_ssh_tunnel () {
-
-    ITERATION_NAME="ssh-$version-$port"
-
-    # Cleanup just in case
-    SSH $LISTENER_BOX "sudo pkill ncat"
-    kill_tcpdump_listener
-
-    reconfigure_ssh_listener add $port
-    start_tcpdump_listener eth1 "$ITERATION_NAME"
-
-    echo "Establishing SSH tunnel for iteration: $ITERATION_NAME"
-    SSH $SENDER_BOX "sudo nohup $ESTABLISH" || die "Failed to establish ssh channel"
-    for file in "${FILES[@]}"; do
-        echo "Starting netcat listener"
-        SSH $LISTENER_BOX "sudo nohup $LISTEN_DATA &"
-        sleep $SLEEP_INTERVAL
-        echo "Sending data"
-        SSH $SENDER_BOX "sudo cat $file | sudo $SEND_DATA"
-        sleep $SLEEP_INTERVAL
-    done
-
-    echo "Cleaning up"
-    SSH $LISTENER_BOX "sudo pkill ncat"
-    SSH $SENDER_BOX "sudo ps -ef | egrep 'ssh.+id_rsa' | awk -F \" \" '{ print \$2 }' | sudo xargs kill"
-    reconfigure_ssh_listener remove $port
-    kill_tcpdump_listener
-    sleep $SLEEP_INTERVAL
-}
-
 reconfigure_ssh_listener () {
 
     if [[ $# -ne 2 ]]; then
-        die "Illegal number of arguments for tcpdump listener, must be 2"
+        die "Illegal number of arguments for reconfiguring ssh listener, must be 2"
     fi
 
     PORT=$2
@@ -144,30 +140,4 @@ reconfigure_ssh_listener () {
 
 }
 
-exec_ptunnel () {
-
-    ITERATION_NAME="ptunnel"
-    # Cleanup just in case
-    SSH $LISTENER_BOX "sudo pkill ncat"
-    kill_tcpdump_listener
-    start_tcpdump_listener eth1 "$ITERATION_NAME"
-
-    SSH $LISTENER_BOX "sudo /vagrant/scripts/ptunnel_listener.sh &"
-
-    kill_tcpdump_listener
-
-}
-
-mkdir -p $SCRIPT_DIR
-
-cat <<EOF > $SCRIPT_DIR/ptunnel_listener.sh
-#!/bin/bash
-echo Starting listener...
-ncat -l -p 5555 -k &
-echo Starting ptunnel proxy...
-ptunnel -c eth1 -v 4
-EOF
-
-chmod 755 $SCRIPT_DIR/ptunnel_listener.sh
-
-exec_ptunnel
+iterate_ssh_tunnels

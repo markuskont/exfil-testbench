@@ -157,8 +157,8 @@ Vagrant.configure(2) do |config|
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
     end
     config.vm.define "router1" do |router1|
-        router1.vm.network :forwarded_port, guest: 2022, host: 2023, id: 'ssh'
-        router1.ssh.port = "2023"
+        router1.vm.network :forwarded_port, guest: 2022, host: 2021, id: 'ssh'
+        router1.ssh.port = "2021"
         router1.ssh.guest_port = "2022"
         router1.vm.box = "exfil_router"
         router1.vm.hostname = "router1"
@@ -169,8 +169,8 @@ Vagrant.configure(2) do |config|
         router1.vm.provision "shell", inline: $router1_persist
     end
     config.vm.define "router2" do |router2|
-        router2.vm.network :forwarded_port, guest: 2022, host: 2024, id: 'ssh'
-        router2.ssh.port = "2024"
+        router2.vm.network :forwarded_port, guest: 2022, host: 2022, id: 'ssh'
+        router2.ssh.port = "2022"
         router2.ssh.guest_port = "2022"
         router2.vm.box = "exfil_router"
         router2.vm.hostname = "router2"
@@ -183,8 +183,8 @@ Vagrant.configure(2) do |config|
         #router2.vm.network "public_network"
     end
     config.vm.define "host" do |host|
-        host.vm.network :forwarded_port, guest: 2022, host: 2021, id: 'ssh'
-        host.ssh.port = "2021"
+        host.vm.network :forwarded_port, guest: 2022, host: 2023, id: 'ssh'
+        host.ssh.port = "2023"
         host.ssh.guest_port = "2022"
         host.vm.box = "exfil_kali"
         # eth1, ip4 is not configured by vagrant (see inline)
@@ -192,8 +192,8 @@ Vagrant.configure(2) do |config|
         host.vm.provision "shell", inline: $host_persist
     end
     config.vm.define "cnc" do |cnc|
-        cnc.vm.network :forwarded_port, guest: 2022, host: 2022, id: 'ssh'
-        cnc.ssh.port = "2022"
+        cnc.vm.network :forwarded_port, guest: 2022, host: 2024, id: 'ssh'
+        cnc.ssh.port = "2024"
         cnc.ssh.guest_port = "2022"
         cnc.vm.box = "exfil_kali"
         # eth1, ip4 is not configured by vagrant (see inline)

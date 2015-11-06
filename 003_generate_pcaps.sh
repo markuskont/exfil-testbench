@@ -3,6 +3,7 @@
 PCAP_DIR="/vagrant/pcap"
 SCRIPT_DIR="`pwd`/scripts"
 SLEEP_INTERVAL='1'
+
 MONITORING_BOX='tap'
 SENDER_BOX='host'
 LISTENER_BOX='cnc'
@@ -26,7 +27,24 @@ die() {
 SSH () {
     BOX=$1
     CMD=$2
+    
     vagrant ssh $BOX -c "$CMD"
+#    case $version in
+#        tap)
+#        IP='192.168.56.195'
+#        ;;
+#        cnc)
+#        IP='192.168.56.194'
+#        ;;
+#        host)
+#        IP='192.168.56.193'
+#        ;;
+#        *)
+#        die "No IP version argument"
+#        ;;
+#    esac
+
+    #ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p 2022 root@$IP $CMD
 }
 
 start_tcpdump_listener () {
@@ -91,7 +109,7 @@ iterate_ssh_tunnels () {
             SSH $SENDER_BOX "sudo nohup $ESTABLISH" || die "Failed to establish ssh channel"
             for file in "${FILES[@]}"; do
                 echo "Starting netcat listener"
-                SSH $LISTENER_BOX "nohup sudo $LISTEN_DATA >> /vagrant/debug.log 2>&1 &"
+                SSH $LISTENER_BOX "nohup sudo $LISTEN_DATA & sleep 1"
                 sleep $SLEEP_INTERVAL
                 echo "Sending data"
                 SSH $SENDER_BOX "sudo cat $file | sudo $SEND_DATA"
@@ -130,7 +148,7 @@ reconfigure_ssh_listener () {
             SSH $LISTENER_BOX "sudo sed -i \"s/^Port $PORT.*//g\" /etc/ssh/sshd_config"
         ;;
         *)
-        die "No IP version argument"
+        die "reconfigure_ssh_listener requires add|remove as first argument"
         ;;
     esac  
 

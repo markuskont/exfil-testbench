@@ -284,6 +284,8 @@ KEY
 sudo chmod 0600 /home/vagrant/.ssh/id_rsa
 sudo chown vagrant:vagrant /home/vagrant/.ssh/id_rsa
 
+sudo ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
+
 SCRIPT
 
 $host_public = <<SCRIPT

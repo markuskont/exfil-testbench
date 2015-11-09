@@ -8,7 +8,7 @@ SCRIPT
 
 $router1_persist = <<SCRIPT
 
-sudo route del default
+#sudo route del default
 
 sudo cat <<IP4 >> /etc/network/interfaces
 
@@ -33,6 +33,7 @@ iface eth2 inet static
 address 172.10.10.21
 netmask 255.255.255.0
 gateway 172.10.10.22
+pre-up route del default
 IP4
 
 sudo cat <<IP6 >> /etc/network/interfaces
@@ -111,7 +112,7 @@ sudo service hostname.sh
 
 sudo service network-manager stop
 sudo update-rc.d -f network-manager remove
-sudo route del default
+#sudo route del default
 
 sudo cat <<IP4 >> /etc/network/interfaces
 auto eth1
@@ -119,6 +120,7 @@ iface eth1 inet static
 address 192.168.11.11
 netmask 255.255.255.0
 gateway 192.168.11.1
+pre-up route del default
 
 IP4
 
@@ -150,7 +152,7 @@ sudo service hostname.sh
 
 sudo service network-manager stop
 sudo update-rc.d -f network-manager remove
-sudo route del default
+#sudo route del default
 
 sudo cat <<IP4 >> /etc/network/interfaces
 auto eth1
@@ -158,6 +160,7 @@ iface eth1 inet static
 address 192.168.12.12
 netmask 255.255.255.0
 gateway 192.168.12.1
+pre-up route del default
 
 IP4
 

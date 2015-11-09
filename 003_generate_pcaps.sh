@@ -29,6 +29,8 @@ LISTENER_IP6='2a02:1010:12::12'
 TUN64_MODES=( 't6over4' 't6to4' 'isatap' )
 NC64_MODES=( '' '-b64' )
 
+ITERATION='0'
+
 # Common functions
 
 die() { 
@@ -265,11 +267,39 @@ iterate_nc64_tunnels () {
     done
 }
 
+iterate_ping_tunnel () {
+    LISTEN_DATA="ncat -w $NCAT_WAIT_INTERVAL -lp 5555 --output=$LOGFILE"
+    SEND_DATA="nc -w $NCAT_WAIT_INTERVAL 127.0.0.1 7777"
+
+    ESTABLISH_PROXY="ptunnel -c eth1 -v 4"
+    ESTABLISH_TUNNEL="ptunnel -c eth1 -v 4 -p $LISTENER_IP4 -lp 7777 -da $LISTENER_IP4 -dp 5555"
+    
+    LISTEN_CMD="screen -m -d sudo $LISTEN_DATA & sleep 1"
+    SEND_CMD="$SEND_DATA"
+    KILL_CMD="sudo pkill -9 ncat"
+
+    ITERATION_NAME="ptunnel"
+
+    start_tcpdump_listener eth1 "$ITERATION_NAME"
+
+    echo "Establishing ICMP tunnel for iteration: $ITERATION_NAME"
+    SSH $LISTENER_BOX "screen -m -d sudo $ESTABLISH_PROXY & sleep 1" || die "Failed to establish ICMP proxy"
+    SSH $SENDER_BOX "screen -m -d sudo $ESTABLISH_TUNNEL & sleep 1" || die "Failed to establish ICMP tunnel"
+
+    send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
+
+    SSH $LISTENER_BOX "sudo pkill -9 ptunnel"
+
+    kill_tcpdump_listener
+    sleep $SLEEP_INTERVAL
+
+}
+
 # HTTP tunneling
 
 iterate_http_tunnels () {
     for port in "${PORTS[@]}"; do
-        LISTEN_DATA="hts $port -s"
+        LISTEN_DATA=""
         SEND_DATA="htc -s $LISTENER_IP4:$port"
 
         ITERATION_NAME="http-$port"
@@ -294,6 +324,7 @@ iterate_http_tunnels () {
 #iterate_ssh_tunnels
 #iterate_ncat_tunnels
 #iterate_nc64_tunnels
+iterate_ping_tunnel
 
 # This does not
 #iterate_http_tunnels

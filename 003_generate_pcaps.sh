@@ -321,9 +321,9 @@ iterate_http_tunnels () {
 
 # MAIN
 # This works
-#iterate_ssh_tunnels
-#iterate_ncat_tunnels
-#iterate_nc64_tunnels
+iterate_ssh_tunnels
+iterate_ncat_tunnels
+iterate_nc64_tunnels
 iterate_ping_tunnel
 
 # This does not

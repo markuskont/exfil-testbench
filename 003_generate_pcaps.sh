@@ -337,30 +337,6 @@ dns_tunnel () {
 
 }
 
-# HTTP tunneling
-
-iterate_http_tunnels () {
-    for port in "${PORTS[@]}"; do
-        LISTEN_DATA=""
-        SEND_DATA="htc -s $LISTENER_IP4:$port"
-
-        ITERATION_NAME="http-$port"
-        LISTEN_CMD="nohup sudo $LISTEN_DATA >> $LOGFILE & sleep 1"
-        SEND_CMD="sudo $SEND_DATA"
-        KILL_CMD="sudo pkill htc"
-
-        echo "$ITERATION_NAME"
-
-        start_tcpdump_listener eth1 "$ITERATION_NAME"
-
-        send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
-
-        kill_tcpdump_listener
-        sleep $SLEEP_INTERVAL
-
-    done
-}
-
 iterate_tun64_tunnels () {
     configure_6through4_interface add tun64
 
@@ -432,16 +408,39 @@ configure_6through4_interface () {
     esac  
 }
 
+iterate_http_tunnels () {
+    for port in "${PORTS[@]}"; do
+        LISTEN_DATA=""
+        SEND_DATA="htc -s $LISTENER_IP4:$port"
+
+        ITERATION_NAME="http-$port"
+        LISTEN_CMD="nohup sudo $LISTEN_DATA >> $LOGFILE & sleep 1"
+        SEND_CMD="sudo $SEND_DATA"
+        KILL_CMD="sudo pkill htc"
+
+        echo "$ITERATION_NAME"
+
+        start_tcpdump_listener eth1 "$ITERATION_NAME"
+
+        send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
+
+        kill_tcpdump_listener
+        sleep $SLEEP_INTERVAL
+
+    done
+}
+
 # MAIN
 # This works
-#iterate_ssh_tunnels
-#iterate_ncat_tunnels
-#iterate_nc64_tunnels
-#iterate_ping_tunnel
-#dns_tunnel
+iterate_ssh_tunnels
+iterate_ncat_tunnels
+iterate_nc64_tunnels
+iterate_tun64_tunnels
+iterate_ping_tunnel
+dns_tunnel
 
 # This does not
-#iterate_http_tunnels
+#
 
 # This is in dev
-iterate_tun64_tunnels
+#iterate_http_tunnels

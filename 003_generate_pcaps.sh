@@ -292,7 +292,9 @@ iterate_ping_tunnel () {
 
     send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
 
+    echo "cleaning up"
     SSH $LISTENER_BOX "sudo pkill -9 ptunnel"
+    SSH $SENDER_BOX "sudo pkill -9 ptunnel"
 
     kill_tcpdump_listener "$ITERATION"
     sleep $SLEEP_INTERVAL
@@ -321,10 +323,7 @@ dns_tunnel () {
     start_tcpdump_listener eth1 "$ITERATION_NAME"
 
     echo "Establishing DNS tunnel for iteration: $ITERATION_NAME"
-    echo "$ESTABLISH_PROXY"
     SSH $LISTENER_BOX "sudo $ESTABLISH_PROXY & sleep 1"
-    sleep $SLEEP_INTERVAL
-    echo "$ESTABLISH_TUNNEL"
     SSH $SENDER_BOX "sudo $ESTABLISH_TUNNEL & sleep 1"
 
     send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
@@ -410,19 +409,31 @@ configure_6through4_interface () {
 
 iterate_http_tunnels () {
     for port in "${PORTS[@]}"; do
-        LISTEN_DATA=""
-        SEND_DATA="htc -s $LISTENER_IP4:$port"
+        ESTABLISH_PROXY="hts -F localhost:4444 $port"
+        ESTABLISH_TUNNEL="htc -F 7777 $LISTENER_IP4:$port"
+
+        LISTEN_DATA="ncat -w $NCAT_WAIT_INTERVAL -lp 4444 --output=$LOGFILE"
+        SEND_DATA="ncat -w $NCAT_WAIT_INTERVAL 127.0.0.1 7777"
 
         ITERATION_NAME="http-$port"
-        LISTEN_CMD="nohup sudo $LISTEN_DATA >> $LOGFILE & sleep 1"
-        SEND_CMD="sudo $SEND_DATA"
-        KILL_CMD="sudo pkill htc"
+
+        LISTEN_CMD="screen -m -d sudo $LISTEN_DATA & sleep 1"
+        SEND_CMD="$SEND_DATA"
+        KILL_CMD="sudo pkill -9 ncat"
 
         echo "$ITERATION_NAME"
 
         start_tcpdump_listener eth1 "$ITERATION_NAME"
 
+        echo "Establishing DNS tunnel for iteration: $ITERATION_NAME"
+        SSH $LISTENER_BOX "sudo $ESTABLISH_PROXY & sleep 1"
+        SSH $SENDER_BOX "sudo $ESTABLISH_TUNNEL & sleep 1"
+
         send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
+
+        echo "cleaning up"
+        SSH $LISTENER_BOX "sudo pkill -9 hts"
+        SSH $SENDER_BOX "sudo pkill -9 htc"
 
         kill_tcpdump_listener
         sleep $SLEEP_INTERVAL
@@ -430,17 +441,10 @@ iterate_http_tunnels () {
     done
 }
 
-# MAIN
-# This works
 iterate_ssh_tunnels
 iterate_ncat_tunnels
 iterate_nc64_tunnels
 iterate_tun64_tunnels
 iterate_ping_tunnel
 dns_tunnel
-
-# This does not
-#
-
-# This is in dev
-#iterate_http_tunnels
+iterate_http_tunnels

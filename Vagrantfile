@@ -216,6 +216,8 @@ sudo cat <<EOF > /opt/bro/etc/networks.cfg
 2a00:1010:11::/64   Private IP space
 EOF
 
+sed -i 's/^interface=.*/interface=eth1/g' /opt/bro/etc/node.cfg
+
 sudo /opt/bro/bin/broctl install
 sudo /opt/bro/bin/broctl check
 sudo echo '@load tuning/json-logs' >> /opt/bro/share/bro/site/local.bro

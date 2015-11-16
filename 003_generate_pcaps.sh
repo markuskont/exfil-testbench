@@ -7,6 +7,8 @@ SCRIPT_DIR="`pwd`/scripts"
 SLEEP_INTERVAL='1'
 NCAT_WAIT_INTERVAL='3'
 
+LOG_DIR='/vagrant/logs'
+
 # Tail this file to verify that data is being transfered
 # --output or stdout of cnc listener should be redirected here
 LOGFILE='/vagrant/test.log'
@@ -56,7 +58,7 @@ start_tcpdump_listener () {
     PCAP_NAME=$2
 
     # Clean up any existing 
-    kill_tcpdump_listener
+    kill_tcpdump_listener "$PCAP_NAME"
 
     echo "Creating PCAP folder"
     SSH $MONITORING_BOX "sudo mkdir -p $PCAP_DIR"
@@ -67,8 +69,10 @@ start_tcpdump_listener () {
 }
 
 kill_tcpdump_listener () {
+
     echo "killing tcpdump"
     SSH $MONITORING_BOX "sudo pkill tcpdump"
+
     sleep $SLEEP_INTERVAL
 }
 
@@ -290,7 +294,7 @@ iterate_ping_tunnel () {
 
     SSH $LISTENER_BOX "sudo pkill -9 ptunnel"
 
-    kill_tcpdump_listener
+    kill_tcpdump_listener "$ITERATION"
     sleep $SLEEP_INTERVAL
 
 }

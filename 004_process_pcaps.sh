@@ -57,3 +57,5 @@ function iterate_pcaps () {
 iterate_pcaps
 
 # MAIN
+# suricatasc
+# https://redmine.openinfosecfoundation.org/projects/suricata/wiki/Interacting_via_Unix_Socket

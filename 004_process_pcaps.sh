@@ -15,6 +15,44 @@ SNORT_LOG_DIR="$LOG_DIR/snort"
 BRO_LOG_DIR="$LOG_DIR/bro"
 SURICATA_LOG_DIR="$LOG_DIR/suricata"
 
+EXTENTION='.pcap'
+
+SCRIPT="
+sudo cp /vagrant/elk/logstash/10-read.conf /etc/logstash/conf.d/
+sudo curl -XDELETE localhost:9200/*
+sudo service logstash stop
+sudo service logstash start
+
+nohup sudo suricata -c /etc/suricata/suricata.yaml --unix-socket & sleep 10
+
+for pcap in \`find $PCAP_DIR -type f -name *$EXTENTION\`; do
+    iteration_name=\`echo \$pcap | \\
+    awk -F \"$PCAP_DIR\" '{print \$2}' |\\
+    awk -F \"$EXTENTION\" '{print \$1}' |\\
+    cut -d '/' -f 2\`
+
+    echo \"Processing pcaps with BRO\"
+    iteration_log_dir=$BRO_LOG_DIR/\$iteration_name
+    if [ -d \$iteration_log_dir ]; then
+        rm -r \$iteration_log_dir
+    fi
+    mkdir -p \$iteration_log_dir
+    cd \$iteration_log_dir
+    /opt/bro/bin/bro -C -r \$pcap /opt/bro/share/bro/site/local.bro
+
+    echo \"Processing pcaps with Suricata\"
+    iteration_log_dir=$SURICATA_LOG_DIR/\$iteration_name
+    if [ -d \$iteration_log_dir ]; then
+        rm -r \$iteration_log_dir
+    fi
+    mkdir -p \$iteration_log_dir
+    sudo suricatasc -c \"pcap-file \$pcap \$iteration_log_dir\"
+
+done
+
+sudo pkill -9 Suricata
+"
+
 # Common functions
 
 function die() { 
@@ -30,31 +68,7 @@ function SSH () {
 
 }
 
-function iterate_pcaps () {
-    # turn existing pcaps into an array
-    EXTENTION='.pcap'
-    pcaps=`vagrant ssh $MONITORING_BOX -c "find $PCAP_DIR -type f -name *$EXTENTION"` || die "Unable to find pcaps over ssh"
-    tempfile=`mktemp`
-
-    for pcap in $pcaps ; do
-        echo $pcap | awk -F "$PCAP_DIR" '{print $2}' | awk -F "$EXTENTION" '{print $1}' | cut -d '/' -f 2 >> $tempfile
-    done
-
-    SSH $MONITORING_BOX "rm -r $LOG_DIR/bro"
-
-    for pcap in `cat $tempfile`; do
-        echo $pcap
-        SSH $MONITORING_BOX "mkdir -p $LOG_DIR/bro/$pcap && cd $LOG_DIR/bro/$pcap && /opt/bro/bin/bro -C -r $PCAP_DIR/$pcap.pcap /opt/bro/share/bro/site/local.bro"
-    done
-
-    rm $tempfile
-
-#    SSH $MONITORING_BOX "mkdir $LOG_DIR"
-#    SSH $MONITORING_BOX "find $PCAP_DIR -type f -name *.pcap | while read pcap ; do cd \"$LOG_DIR/\`echo $pcap | awk -F \"$PCAP_DIR\" '{print \$2}'\`\" && /opt/bro/bin/bro -r \$pcap /opt/bro/share/bro/site/local.bro ; done"
-
-}
-
-iterate_pcaps
+SSH $MONITORING_BOX "$SCRIPT"
 
 # MAIN
 # suricatasc

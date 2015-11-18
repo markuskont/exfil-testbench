@@ -40,6 +40,7 @@ sudo sed -i 's/Port 22/Port 2022/g' /etc/ssh/sshd_config
 
 sudo apt-get update
 sudo apt-get install -y --force-yes httptunnel
+sudo pip install --upgrade scapy
 
 sudo git clone https://github.com/lockout/nc64 /opt/nc64
 sudo chmod 755 /opt/nc64/nc64.py

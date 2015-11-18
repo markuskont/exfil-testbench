@@ -232,6 +232,9 @@ sudo service suricata status
 sudo service suricata stop
 sudo update-rc.d -f suricata remove
 
+sudo sed -i -r "/unix-command:/I{n; s/enabled: no/enabled: yes/}" /etc/suricata/suricata.yaml
+sudo sed -i 's/#- newflow/- netflow/g' /etc/suricata/suricata.yaml
+
 sudo apt-get install -y oinkmaster
 sudo cat << EOF >> /etc/oinkmaster.conf
 url = http://rules.emergingthreats.net/open/suricata/emerging.rules.tar.gz

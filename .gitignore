@@ -5,3 +5,5 @@
 tmp/**/*
 pcap/**/*
 .ssh/**/*
+unified2.*
+logs/**/*

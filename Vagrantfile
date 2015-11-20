@@ -253,11 +253,37 @@ sudo sed -i 's/IFACE=eth0/IFACE=eth1/g' /etc/default/suricata
 SCRIPT
 
 $snort = <<SCRIPT
-echo snort snort/address_range string 192.168.11.0/24 | debconf-set-selections
-sudo apt-get -y install snort
+#echo snort snort/address_range string 192.168.11.0/24 | debconf-set-selections
+#sudo apt-get -y install snort
 
 sudo service snort stop
 sudo update-rc.d -f snort remove
+
+sudo wget https://www.snort.org/downloads/snort/daq-2.0.6.tar.gz
+sudo wget https://www.snort.org/downloads/snort/snort-2.9.7.6.tar.gz
+
+sudo apt-get -y install flex libbison-dev libpcap-dev libpcre3-dev libdnet-dev libdumbnet-dev libghc-zlib-dev
+
+tar xvfz daq-2.0.6.tar.gz
+cd daq-2.0.6
+./configure
+sudo make
+sudo make install
+sudo ldconfig
+cd ..
+
+tar xvfz snort-2.9.7.6.tar.gz
+cd snort-2.9.7.6
+sudo ./configure --enable-sourcefire --with-daq-includes=/opt/daq/lib/ --with-daq-libraries=/opt/daq/include/ 
+sudo make 
+sudo make install
+cd ..
+
+sudo wget -O rules.tgz https://www.snort.org/rules/snortrules-snapshot-2976.tar.gz?oinkcode=<TO_BE_REPLACED>
+mkdir -p /vagrant/snort/sourcefire
+rm -r /vagrant/snort/sourcefire/*
+tar -xzf rules.tgz -C /vagrant/snort/sourcefire
+cp /vagrant/snort/snort-sourcefire.conf /vagrant/snort/sourcefire/snort.conf
 
 SCRIPT
 
@@ -543,9 +569,9 @@ Vagrant.configure(2) do |config|
         tap.vm.provision "shell", 
             inline: $suricata
         tap.vm.provision "shell", 
-            inline: $snort
-        tap.vm.provision "shell", 
             inline: $elk
+        tap.vm.provision "shell", 
+            inline: $snort
     end
     config.vm.define "moloch" do |moloch|
         moloch.vm.box = "ubuntu/trusty64"

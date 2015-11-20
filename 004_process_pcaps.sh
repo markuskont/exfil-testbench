@@ -8,6 +8,7 @@ LOG_DIR="/vagrant/logs"
 SSH_ARGS='-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
 
 MONITORING_BOX='tap'
+MONITORING_BOX2='moloch'
 SENDER_BOX='host'
 LISTENER_BOX='cnc'
 
@@ -17,7 +18,9 @@ SURICATA_LOG_DIR="$LOG_DIR/suricata"
 
 EXTENTION='.pcap'
 
-SCRIPT="
+MOLOCH_BASE_DIR="/data/moloch"
+
+TAP="
 sudo cp /vagrant/elk/logstash/10-read.conf /etc/logstash/conf.d/
 sudo curl -XDELETE localhost:9200/*
 sudo service logstash stop
@@ -31,7 +34,7 @@ for pcap in \`find $PCAP_DIR -type f -name *$EXTENTION\`; do
     awk -F \"$EXTENTION\" '{print \$1}' |\\
     cut -d '/' -f 2\`
 
-    echo \"Processing pcaps with BRO\"
+    echo \"Processing \$pcap with BRO\"
     iteration_log_dir=$BRO_LOG_DIR/\$iteration_name
     if [ -d \$iteration_log_dir ]; then
         rm -r \$iteration_log_dir
@@ -40,7 +43,7 @@ for pcap in \`find $PCAP_DIR -type f -name *$EXTENTION\`; do
     cd \$iteration_log_dir
     /opt/bro/bin/bro -C -r \$pcap /opt/bro/share/bro/site/local.bro
 
-    echo \"Processing pcaps with Suricata\"
+    echo \"Processing \$pcap with Suricata\"
     iteration_log_dir=$SURICATA_LOG_DIR/\$iteration_name
     if [ -d \$iteration_log_dir ]; then
         rm -r \$iteration_log_dir
@@ -51,6 +54,26 @@ for pcap in \`find $PCAP_DIR -type f -name *$EXTENTION\`; do
 done
 
 sudo pkill -9 Suricata
+"
+MOLOCH="
+
+sudo pkill -9 moloch
+
+sudo service elasticsearch stop
+sudo service elasticsearch start
+
+sleep 10
+
+echo INIT | sudo /data/moloch/db/db.pl 127.0.0.1:9200 init
+sleep 5
+cd $MOLOCH_BASE_DIR/viewer
+node addUser.js -c ../etc/config.ini admin "Admin" admin -admin
+
+sudo $MOLOCH_BASE_DIR/bin/moloch-capture -c $MOLOCH_BASE_DIR/etc/config.ini -R $PCAP_DIR
+
+cd $MOLOCH_BASE_DIR/bin
+nohup sudo ./run_viewer.sh & sleep 1
+
 "
 
 # Common functions
@@ -68,7 +91,8 @@ function SSH () {
 
 }
 
-SSH $MONITORING_BOX "$SCRIPT"
+SSH $MONITORING_BOX "$TAP"
+SSH $MONITORING_BOX2 "$MOLOCH"
 
 # MAIN
 # suricatasc

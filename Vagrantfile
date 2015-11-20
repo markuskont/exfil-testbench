@@ -218,9 +218,15 @@ EOF
 
 sed -i 's/^interface=.*/interface=eth1/g' /opt/bro/etc/node.cfg
 
+sudo echo '@load tuning/json-logs' >> /opt/bro/share/bro/site/local.bro
+sudo /opt/bro/bin/broctl install
+
+sudo mkdir /opt/bro/share/bro/custom/
+sudo cp /opt/bro/spool/installed-scripts-do-not-touch/auto/local-networks.bro /opt/bro/share/bro/custom/
+sudo echo '@load custom/local-networks.bro'
+
 sudo /opt/bro/bin/broctl install
 sudo /opt/bro/bin/broctl check
-sudo echo '@load tuning/json-logs' >> /opt/bro/share/bro/site/local.bro
 
 SCRIPT
 
@@ -337,6 +343,20 @@ wget -q https://github.com/aol/moloch/archive/v0.11.5.tar.gz
 tar -xzf v0.11.5.tar.gz
 cd moloch-0.11.5
 echo -e 'no\n512M\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n' | sudo ./easybutton-singlehost.sh
+sudo pkill -9 java
+
+sudo wget -O - http://packages.elasticsearch.org/GPG-KEY-elasticsearch | apt-key add -
+sudo echo 'deb http://packages.elasticsearch.org/elasticsearch/1.7/debian stable main' | tee /etc/apt/sources.list.d/elasticsearch.list
+
+sudo apt-get update
+sudo apt-get install -y elasticsearch
+
+sudo cat << EOF >> /etc/default/elasticsearch
+ES_HEAP_SIZE=1g
+EOF
+
+sudo service elasticsearch restart
+sudo update-rc.d elasticsearch defaults
 
 SCRIPT
 

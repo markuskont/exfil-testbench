@@ -223,7 +223,7 @@ sudo /opt/bro/bin/broctl install
 
 sudo mkdir /opt/bro/share/bro/custom/
 sudo cp /opt/bro/spool/installed-scripts-do-not-touch/auto/local-networks.bro /opt/bro/share/bro/custom/
-sudo echo '@load custom/local-networks.bro'
+sudo echo '@load custom/local-networks.bro' >> /opt/bro/share/bro/site/local.bro
 
 sudo /opt/bro/bin/broctl install
 sudo /opt/bro/bin/broctl check
@@ -285,7 +285,7 @@ sudo make
 sudo make install
 cd ..
 
-sudo wget -O rules.tgz https://www.snort.org/rules/snortrules-snapshot-2976.tar.gz?oinkcode=<TO_BE_REPLACED>
+sudo wget -O rules.tgz https://www.snort.org/rules/snortrules-snapshot-2976.tar.gz?oinkcode=<CODE>
 mkdir -p /vagrant/snort/sourcefire
 rm -r /vagrant/snort/sourcefire/*
 tar -xzf rules.tgz -C /vagrant/snort/sourcefire
@@ -305,6 +305,7 @@ sudo apt-get install -y logstash apache2 elasticsearch
 
 sudo service logstash stop
 sudo update-rc.d -f logstash remove
+sudo update-rc.d elasticsearch enable
 
 sudo cat <<EOF >> /etc/elasticsearch/elasticsearch.yaml
 http.cors.allow-origin: "/.*/"
@@ -590,8 +591,8 @@ Vagrant.configure(2) do |config|
             inline: $suricata
         tap.vm.provision "shell", 
             inline: $elk
-        tap.vm.provision "shell", 
-            inline: $snort
+#        tap.vm.provision "shell", 
+#            inline: $snort
     end
     config.vm.define "moloch" do |moloch|
         moloch.vm.box = "ubuntu/trusty64"

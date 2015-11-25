@@ -285,11 +285,11 @@ sudo make
 sudo make install
 cd ..
 
-sudo wget -O rules.tgz https://www.snort.org/rules/snortrules-snapshot-2976.tar.gz?oinkcode=<CODE>
-mkdir -p /vagrant/snort/sourcefire
-rm -r /vagrant/snort/sourcefire/*
-tar -xzf rules.tgz -C /vagrant/snort/sourcefire
-cp /vagrant/snort/snort-sourcefire.conf /vagrant/snort/sourcefire/snort.conf
+#sudo wget -O rules.tgz https://www.snort.org/rules/snortrules-snapshot-2976.tar.gz?oinkcode=<CODE>
+#mkdir -p /vagrant/snort/sourcefire
+#rm -r /vagrant/snort/sourcefire/*
+#tar -xzf rules.tgz -C /vagrant/snort/sourcefire
+#cp /vagrant/snort/snort-sourcefire.conf /vagrant/snort/sourcefire/snort.conf
 
 SCRIPT
 
@@ -591,8 +591,8 @@ Vagrant.configure(2) do |config|
             inline: $suricata
         tap.vm.provision "shell", 
             inline: $elk
-#        tap.vm.provision "shell", 
-#            inline: $snort
+        tap.vm.provision "shell", 
+            inline: $snort
     end
     config.vm.define "moloch" do |moloch|
         moloch.vm.box = "ubuntu/trusty64"

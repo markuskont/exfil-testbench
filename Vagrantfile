@@ -305,7 +305,7 @@ sudo apt-get install -y logstash apache2 elasticsearch
 
 sudo service logstash stop
 sudo update-rc.d -f logstash remove
-sudo update-rc.d elasticsearch enable
+sudo update-rc.d elasticsearch defaults
 
 sudo cat <<EOF >> /etc/elasticsearch/elasticsearch.yaml
 http.cors.allow-origin: "/.*/"

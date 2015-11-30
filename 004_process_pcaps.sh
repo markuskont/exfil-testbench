@@ -148,7 +148,7 @@ nohup sudo ./run_viewer.sh & sleep 1
 "
 
 SSH $MONITORING_BOX "$TAP"
-#SSH $MONITORING_BOX2 "$MOLOCH"
+SSH $MONITORING_BOX2 "$MOLOCH"
 
 # MAIN
 # suricatasc

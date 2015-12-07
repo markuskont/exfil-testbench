@@ -29,6 +29,7 @@ LISTENER_IP4='192.168.12.12'
 LISTENER_IP6='2a02:1010:12::12'
 
 TUN64_MODES=( 't6over4' 't6to4' 'isatap' )
+TUN64_ENCAP_MODES=( '' '--gre' )
 NC64_MODES=( '' '-b64' )
 
 ITERATION='0'
@@ -354,23 +355,25 @@ iterate_tun64_tunnels () {
         esac  
         for port in "${PORTS[@]}"; do
             for mode in "${TUN64_MODES[@]}"; do
+                for encapsulation in "${TUN64_ENCAP_MODES[@]}"; do
 
-                LISTEN_DATA="ncat -$protocol -w $NCAT_WAIT_INTERVAL -lp $port --output=$LOGFILE"
-                SEND_DATA="/opt/tun64/tun64.py -i eth1 -v --$mode -s4 192.168.11.11 -d4 $LISTENER_IP4 -d6 $LISTENER_IP6 -dp $port -$proto_key -m \"\`sudo cat /dev/stdin\`\""
-
-                LISTEN_CMD="screen -m -d sudo $LISTEN_DATA & sleep 1"
-                SEND_CMD="sudo $SEND_DATA"
-                KILL_CMD="sudo pkill -9 ncat"
-
-                ITERATION_NAME="tun64-$protocol-$port-$mode"
-                echo "$ITERATION_NAME"
-
-                start_tcpdump_listener eth1 "$ITERATION_NAME"
-
-                send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
-
-                kill_tcpdump_listener
-                sleep $SLEEP_INTERVAL
+                    LISTEN_DATA="ncat -$protocol -w $NCAT_WAIT_INTERVAL -lp $port --output=$LOGFILE"
+                    SEND_DATA="/opt/tun64/tun64.py -i eth1 -v --$mode $encapsulation -s4 192.168.11.11 -d4 $LISTENER_IP4 -d6 $LISTENER_IP6 -dp $port -$proto_key -m \"\`sudo cat /dev/stdin\`\""
+    
+                    LISTEN_CMD="screen -m -d sudo $LISTEN_DATA & sleep 1"
+                    SEND_CMD="sudo $SEND_DATA"
+                    KILL_CMD="sudo pkill -9 ncat"
+    
+                    ITERATION_NAME="tun64-$protocol-$port-$mode$encapsulation"
+                    echo "$ITERATION_NAME"
+    
+                    start_tcpdump_listener eth1 "$ITERATION_NAME"
+    
+                    send_files "$LISTEN_CMD" "$SEND_CMD" "$KILL_CMD"
+    
+                    kill_tcpdump_listener
+                    sleep $SLEEP_INTERVAL
+                done
             done
         done
     done
@@ -441,10 +444,39 @@ iterate_http_tunnels () {
     done
 }
 
-iterate_ssh_tunnels
-iterate_ncat_tunnels
-iterate_nc64_tunnels
-iterate_tun64_tunnels
-iterate_ping_tunnel
-dns_tunnel
-iterate_http_tunnels
+case $1 in
+    ssh)
+        iterate_ssh_tunnels
+    ;;
+    http)
+        iterate_http_tunnels
+    ;;
+    ncat)
+        iterate_ncat_tunnels
+    ;;
+    nc64)
+        iterate_nc64_tunnels
+    ;;
+    tun64)
+        iterate_tun64_tunnels
+    ;;
+    dns)
+        dns_tunnel
+    ;;
+    icmp)
+        iterate_ping_tunnel
+    ;;
+    all)
+        iterate_ssh_tunnels
+        iterate_ncat_tunnels
+        iterate_nc64_tunnels
+        iterate_tun64_tunnels
+        iterate_ping_tunnel
+        dns_tunnel
+        iterate_http_tunnels
+    ;;
+    *)
+        echo "Invalid argument, please use <ssh|http|ncat|nc64|tun64|dns|icmp|all>"
+    ;;
+esac
+

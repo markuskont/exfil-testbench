@@ -266,7 +266,7 @@ sudo service snort stop
 sudo update-rc.d -f snort remove
 
 sudo wget https://www.snort.org/downloads/snort/daq-2.0.6.tar.gz
-sudo wget https://www.snort.org/downloads/snort/snort-2.9.7.6.tar.gz
+sudo wget https://www.snort.org/downloads/snort/snort-2.9.8.0.tar.gz
 
 sudo apt-get -y install flex libbison-dev libpcap-dev libpcre3-dev libdnet-dev libdumbnet-dev libghc-zlib-dev
 
@@ -278,8 +278,8 @@ sudo make install
 sudo ldconfig
 cd ..
 
-tar xvfz snort-2.9.7.6.tar.gz
-cd snort-2.9.7.6
+tar xvfz snort-2.9.8.0.tar.gz
+cd snort-2.9.8.0
 sudo ./configure --enable-sourcefire --with-daq-includes=/opt/daq/lib/ --with-daq-libraries=/opt/daq/include/ 
 sudo make 
 sudo make install
@@ -408,60 +408,6 @@ KEY
 
 SCRIPT
 
-$monitoring_private_key =<<SCRIPT
-
-sudo mkdir -p /root/.ssh
-sudo chmod 700 /root/.ssh
-
-sudo cat<<KEY > /root/.ssh/id_rsa
------BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEA8Uxol0ck88RKEJTbftRs7EJ6CMNfiamIaSit9KMkwuu05F7V
-3S+nWg0p3yTf90T5qQNLhDsv9BpLNDuIIf0xtdZ6q1Lq6QXu3KXvRMTYW0ijicoY
-Ds092QUGd2vmUb+AydHtDW1u4Kbip1Osf70nmYmxeo9sekmDqwsNsBXc3PMfd0At
-iY2LpOWQZzcwPM9K2pgptqEGsl9ubRfI/F6UEkpfNYfEVfIj7WJnRu441z22IVCM
-H3K1MVL0GkTNnG7HYpsMAEbfZEG+smvYFnRNiFInkPx4ycYDh+2KPYp1vzZTKrt5
-S/loon5pstTz/opMUh4bupYPOMGeVEk4ewsapwIDAQABAoIBAFmDdulnwxWLI86y
-6hpKw32By7OkhrSS57/bD21JeEG3Hwv5Am1jWDnX2EinbU5VkChayJDtRATSHEPs
-MbwqKV7Dig40XGDFiq7f/7sLKxfyAnkDN5mGGgOAEb4LkQ2SdTxpW/83MYK1Zi+c
-oslgamhS5DwLKLrUuruhBhrkgWKVNhca7J/FrzgDUV5NRlnwrWQGLmoQ0lQVCJoc
-ctcBLIZe0gH6zZHnP4ZsuOb0HjobJcWY2lrPfzN7ys7WXlTymoMUs2YucRWTpXGP
-vXgflhpfS1oKR70N0xVUjw+qnP1ylPfg2h3YI30KiJKTBLc6sBmhQStjgSb53jFR
-73/FiMECgYEA+fmCvoi5dcw7yyu31SI4fSHBdPnOYEd+wHAjageOjuuK/M3trELH
-bQkU2f7ANRw9elCFs71TD1fOuMXhBYgDnKR1BN1zpPY3F6/jpaW5ZNPNpCst6DJJ
-FJ7CBjgi/LQAwhNOBnIJF0D0UVC3Ym9OJnT2LRQauHcX/Y3bp1iM/oUCgYEA9x1c
-WhVxSNWwKHKwFLBf+Lff3L+GyhU2zlg3NDYOEQijqoETUU6sLG28Ke0mS1oHOgnr
-nUsw+tCORisvVLkCogxqBi3XR4dY9k62icv9uoWf1JbbxYAYb4JnMcKV7F2DtuN5
-ufZNo8uzUBhehhRWb/K06uUbF0yKJxn9sJ8ySjsCgYB427/w6x3v7EzEkGCTNbZm
-GZn1OoojVq3b0NvuebTdONi8HbxZ2vecqhVgyKCZjQvURXY/TrwH4QZbo6CGEhrc
-8054ibFOApTkaPABuLyIGTeFtjK93wIibBeW9jFESKtNKhRBXYUzrv3xCrt/Zh08
-zrPvW5cHtNzuhFW89T1GGQKBgQDXAv37B9M023FWEEwzBC/NGjg3O5KNPJ4eNlV6
-IVpl6c12Kq7jPP/D/IsPM9/xClllX4JZrzXj1hkk5qhdIEkxNHn//FznSNXYIi7j
-gNG5PFEQSV7Z3pXkWGNvwW5vZgKX3B9q9esiDLhthXahVQrMhzJxe3zx7c/7K7s3
-tZytRwKBgF+3KQJq2u8UKGmrzQx7siFp5oMRAgJ8Dvpv6k4ni8bUZGgnjSaBXrI0
-ZH0d9KkSO2hUQegW//dfR8aAohfIHz8OB01QWjd8JKrE79pfi4XwwepmOwfJQZQL
-ZL+1ezX1xIHQOfEDIODUX8hk/knCv6+84ditVcvJSaIeAnFGfb1S
------END RSA PRIVATE KEY-----
-KEY
-
-sudo chmod 0600 /root/.ssh/id_rsa
-sudo chown root:root /root/.ssh/id_rsa
-
-SCRIPT
-
-$monitoring_public_key = <<SCRIPT
-
-sudo mkdir /root/.ssh/
-
-sudo cat <<KEY >> /root/.ssh/authorized_keys
-ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDxTGiXRyTzxEoQlNt+1GzsQnoIw1+JqYhpKK30oyTC67TkXtXdL6daDSnfJN/3RPmpA0uEOy/0Gks0O4gh/TG11nqrUurpBe7cpe9ExNhbSKOJyhgOzT3ZBQZ3a+ZRv4DJ0e0NbW7gpuKnU6x/vSeZibF6j2x6SYOrCw2wFdzc8x93QC2JjYuk5ZBnNzA8z0ramCm2oQayX25tF8j8XpQSSl81h8RV8iPtYmdG7jjXPbYhUIwfcrUxUvQaRM2cbsdimwwARt9kQb6ya9gWdE2IUieQ/HjJxgOH7Yo9inW/NlMqu3lL+Wiifmmy1PP+ikxSHhu6lg84wZ5USTh7Cxqn root@tap
-KEY
-
-sudo chmod 0700 /root/.ssh
-sudo chmod 0600 /root/.ssh/authorized_keys
-sudo chown -R root:root /root/.ssh
-
-SCRIPT
-
 Vagrant.configure(2) do |config|
     
     config.vm.provider :virtualbox do |vb|
@@ -492,7 +438,6 @@ Vagrant.configure(2) do |config|
             ip: "192.168.56.191", 
             auto_config: false
         router1.vm.provision "shell", inline: $router1_persist
-        #router1.vm.provision "shell", inline: $monitoring_public_key
     end
     config.vm.define "router2" do |router2|
         router2.vm.network :forwarded_port, 
@@ -520,8 +465,6 @@ Vagrant.configure(2) do |config|
             inline: $router2_persist
         router2.vm.provision "shell", 
             inline: $isp
-        #router2.vm.provision "shell", inline: $monitoring_public_key
-        #router2.vm.network "public_network"
     end
     config.vm.define "host" do |host|
         host.vm.network :forwarded_port, 
@@ -543,7 +486,6 @@ Vagrant.configure(2) do |config|
             inline: $host_persist
         host.vm.provision "shell", 
             inline: $host_private
-        #host.vm.provision "shell", inline: $monitoring_public_key
     end
     config.vm.define "cnc" do |cnc|
         cnc.vm.network :forwarded_port, 
@@ -565,7 +507,6 @@ Vagrant.configure(2) do |config|
             inline: $cnc_persist
         cnc.vm.provision "shell", 
             inline: $host_public
-        #cnc.vm.provision "shell", inline: $monitoring_public_key
     end
     config.vm.define "tap" do |tap|
         tap.vm.box = "ubuntu/trusty64"
